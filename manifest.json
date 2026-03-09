@@ -1,0 +1,9 @@
+{
+  "id": "at-reminder",
+  "name": "@ Reminder",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "Set reminders using @remind in your notes. Get macOS notifications and track all reminders in a side panel.",
+  "author": "Amit",
+  "isDesktopOnly": true
+}

@@ -1,0 +1,19 @@
+{
+  "name": "obsidian-at-reminder",
+  "version": "1.0.0",
+  "description": "Set reminders using @remind syntax in Obsidian notes with macOS notifications",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production"
+  },
+  "keywords": ["obsidian", "reminder", "notification"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "esbuild": "^0.19.0",
+    "obsidian": "^1.4.0",
+    "typescript": "^5.3.0"
+  }
+}
