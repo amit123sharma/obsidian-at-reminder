@@ -3,7 +3,7 @@
   "name": "@ Reminder",
   "version": "1.0.0",
   "minAppVersion": "1.0.0",
-  "description": "Set reminders using @remind in your notes. Get macOS notifications and track all reminders in a side panel.",
+  "description": "Set reminders via Cmd+Shift+R, /remind, or right-click. Get macOS native notifications and track all reminders in a side panel.",
   "author": "Amit",
   "isDesktopOnly": true
 }
