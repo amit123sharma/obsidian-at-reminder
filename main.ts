@@ -226,7 +226,7 @@ class ReminderInputModal extends Modal {
 			}
 			const dateTime = new Date(`${dateInput.value}T${timeInput.value}`).toISOString();
 			if (isPast(dateTime)) {
-				new Notice("⚠️ The selected time is in the past. Please choose a future time.");
+				new Notice("The selected time is in the past. Please choose a future time.");
 				return;
 			}
 			void this.createReminder(message, descInput.value.trim(), dateTime);
@@ -376,7 +376,7 @@ class ReminderPanelView extends ItemView {
 		const headerBtns = header.createDiv({ cls: "at-reminder-header-btns" });
 
 		const addBtn = headerBtns.createEl("button", {
-			text: "+ Add",
+			text: "Add",
 			cls: "at-reminder-add-btn",
 		});
 		addBtn.addEventListener("click", () => {
