@@ -23,7 +23,7 @@ import { exec } from "child_process";
 interface Reminder {
 	id: string;
 	message: string;
-	description: string; // optional detail text
+	description: string;
 	dateTime: string;
 	filePath: string;
 	line: number;
@@ -46,7 +46,7 @@ const VIEW_TYPE_REMINDERS = "at-reminder-panel";
 // ─── Utility ─────────────────────────────────────────────────────────────────
 
 function generateId(): string {
-	return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+	return Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
 }
 
 function formatDateTime(iso: string): string {
@@ -69,55 +69,31 @@ function pad2(n: number): string {
 }
 
 // ─── macOS Notification ──────────────────────────────────────────────────────
-// Uses terminal-notifier for clean macOS notifications:
-// - No "Show" button (clean banner)
-// - Clicking notification activates Obsidian (via -activate flag)
-// - Sound support via -sound flag
-// - Does NOT auto-activate Obsidian (respects user's choice to ignore)
 
-function sendNotification(title: string, message: string, sound: boolean, onClick?: () => void) {
-	// Build terminal-notifier command
-	const args = [
-		`-title "${title.replace(/"/g, '\\"')}"`,
-		`-message "${message.replace(/"/g, '\\"')}"`,
-		`-activate "md.obsidian"`,               // Clicking notification opens Obsidian
-		`-sender "md.obsidian"`,                  // Shows Obsidian icon on notification
-		`-group "obsidian-reminder"`,             // Group notifications (replaces old ones)
-	];
+function sendNotification(title: string, message: string, sound: boolean, onClick?: () => void): void {
+	const escapedMsg = message.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/'/g, "'\\''");
+	const escapedTitle = title.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/'/g, "'\\''");
+	const soundClause = sound ? ' sound name "Hero"' : "";
 
-	if (sound) {
-		args.push(`-sound "Hero"`);
-	}
-
-	const cmd = `/opt/homebrew/bin/terminal-notifier ${args.join(" ")}`;
-
-	exec(cmd, (err: any) => {
+	const script = `display notification "${escapedMsg}" with title "${escapedTitle}"${soundClause}`;
+	exec(`osascript -e '${script}'`, (err: Error | null) => {
 		if (err) {
-			console.error("terminal-notifier failed, falling back to osascript:", err);
-			// Fallback to osascript if terminal-notifier not available
-			const escapedMsg = message.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-			const escapedTitle = title.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-			const soundClause = sound ? ' sound name "Hero"' : "";
-			const script = `display notification "${escapedMsg}" with title "${escapedTitle}"${soundClause}`;
-			exec(`osascript -e '${script}'`);
+			console.error("Notification failed:", err);
 		}
 	});
 
-	// Store the onClick handler — it will run when user opens Obsidian from notification
+	exec(`osascript -e 'tell application "Obsidian" to activate'`, (err: Error | null) => {
+		if (err) console.error("Failed to activate app:", err);
+	});
+
 	if (onClick) {
-		// Small delay to let Obsidian become active first
-		const handler = () => {
+		setTimeout(() => {
 			onClick();
-			window.removeEventListener("focus", handler);
-		};
-		window.addEventListener("focus", handler);
-		// Cleanup after 5 minutes if never triggered
-		setTimeout(() => window.removeEventListener("focus", handler), 300000);
+		}, 1000);
 	}
 }
 
 // ─── Reminder Input Modal ────────────────────────────────────────────────────
-// This is the main modal that lets you type a message and pick date/time.
 
 class ReminderInputModal extends Modal {
 	private plugin: AtReminderPlugin;
@@ -138,12 +114,12 @@ class ReminderInputModal extends Modal {
 		this.prefillMessage = prefillMessage;
 	}
 
-	onOpen() {
+	onOpen(): void {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass("at-reminder-modal");
 
-		contentEl.createEl("h2", { text: "⏰ New Reminder" });
+		contentEl.createEl("h2", { text: "⏰ New reminder" });
 
 		const formContainer = contentEl.createDiv({ cls: "at-reminder-form" });
 
@@ -155,7 +131,7 @@ class ReminderInputModal extends Modal {
 			cls: "at-reminder-msg-input",
 			placeholder: "e.g., Review PR, Submit report, Call John...",
 			value: this.prefillMessage,
-		}) as HTMLInputElement;
+		});
 		msgInput.focus();
 
 		// Description textarea (optional)
@@ -164,7 +140,7 @@ class ReminderInputModal extends Modal {
 		const descInput = descGroup.createEl("textarea", {
 			cls: "at-reminder-desc-input",
 			placeholder: "Add extra context, notes, links...",
-		}) as HTMLTextAreaElement;
+		});
 		descInput.rows = 3;
 
 		// Date input
@@ -173,7 +149,7 @@ class ReminderInputModal extends Modal {
 		const dateInput = dateGroup.createEl("input", {
 			type: "date",
 			cls: "at-reminder-date-input",
-		}) as HTMLInputElement;
+		});
 		const today = new Date();
 		dateInput.value = today.toISOString().split("T")[0];
 
@@ -183,7 +159,7 @@ class ReminderInputModal extends Modal {
 		const timeInput = timeGroup.createEl("input", {
 			type: "time",
 			cls: "at-reminder-time-input",
-		}) as HTMLInputElement;
+		});
 		const nextHour = new Date(today.getTime() + 60 * 60 * 1000);
 		timeInput.value = pad2(nextHour.getHours()) + ":" + pad2(nextHour.getMinutes());
 
@@ -227,7 +203,7 @@ class ReminderInputModal extends Modal {
 		const btnContainer = formContainer.createDiv({ cls: "at-reminder-buttons" });
 
 		const submitBtn = btnContainer.createEl("button", {
-			text: "✅ Set Reminder",
+			text: "✅ Set reminder",
 			cls: "at-reminder-submit-btn mod-cta",
 		});
 
@@ -237,7 +213,7 @@ class ReminderInputModal extends Modal {
 		});
 
 		// Enter key submits
-		const doSubmit = () => {
+		const doSubmit = (): void => {
 			const message = msgInput.value.trim();
 			if (!message) {
 				new Notice("Please enter a reminder message.");
@@ -253,7 +229,7 @@ class ReminderInputModal extends Modal {
 				new Notice("⚠️ The selected time is in the past. Please choose a future time.");
 				return;
 			}
-			this.createReminder(message, descInput.value.trim(), dateTime);
+			void this.createReminder(message, descInput.value.trim(), dateTime);
 			this.close();
 		};
 
@@ -261,7 +237,7 @@ class ReminderInputModal extends Modal {
 		cancelBtn.addEventListener("click", () => this.close());
 
 		// Allow Enter to submit from message and date/time inputs (not textarea)
-		const onKeydown = (e: KeyboardEvent) => {
+		const onKeydown = (e: KeyboardEvent): void => {
 			if (e.key === "Enter") {
 				e.preventDefault();
 				doSubmit();
@@ -272,7 +248,7 @@ class ReminderInputModal extends Modal {
 		timeInput.addEventListener("keydown", onKeydown);
 	}
 
-	async createReminder(message: string, description: string, dateTime: string) {
+	async createReminder(message: string, description: string, dateTime: string): Promise<void> {
 		const view = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
 		const filePath = view?.file?.path || "unknown";
 		const lineNum = this.editor ? this.editor.getCursor().line : this.lineNumber;
@@ -298,11 +274,9 @@ class ReminderInputModal extends Modal {
 			const cursor = this.editor.getCursor();
 			const currentLine = this.editor.getLine(cursor.line);
 
-			// If line is empty or cursor is at end, append. Otherwise insert on new line.
 			if (currentLine.trim() === "") {
 				this.editor.setLine(cursor.line, `⏰ remind: "${message}" — ${formattedTime}`);
 			} else {
-				// Insert at end of current line
 				const insertText = `  ⏰ remind: "${message}" — ${formattedTime}`;
 				this.editor.replaceRange(insertText, { line: cursor.line, ch: currentLine.length });
 			}
@@ -311,13 +285,12 @@ class ReminderInputModal extends Modal {
 		new Notice(`✅ Reminder set: "${message}" at ${formatDateTime(dateTime)}`);
 	}
 
-	onClose() {
+	onClose(): void {
 		this.contentEl.empty();
 	}
 }
 
 // ─── Slash Command Suggest ───────────────────────────────────────────────────
-// Type /remind to trigger the reminder modal
 
 class ReminderSuggest extends EditorSuggest<string> {
 	plugin: AtReminderPlugin;
@@ -331,11 +304,10 @@ class ReminderSuggest extends EditorSuggest<string> {
 		const line = editor.getLine(cursor.line);
 		const subStr = line.substring(0, cursor.ch);
 
-		// Trigger on /remind or /rem
 		const match = subStr.match(/\/remind?$/);
 		if (match) {
 			return {
-				start: { line: cursor.line, ch: match.index! },
+				start: { line: cursor.line, ch: match.index ?? 0 },
 				end: cursor,
 				query: match[0],
 			};
@@ -343,7 +315,7 @@ class ReminderSuggest extends EditorSuggest<string> {
 		return null;
 	}
 
-	getSuggestions(context: EditorSuggestContext): string[] {
+	getSuggestions(_context: EditorSuggestContext): string[] {
 		return [
 			"⏰ Set a new reminder",
 			"📋 Open reminders panel",
@@ -354,12 +326,11 @@ class ReminderSuggest extends EditorSuggest<string> {
 		el.createEl("div", { text: value, cls: "at-reminder-suggest-item" });
 	}
 
-	selectSuggestion(value: string, evt: MouseEvent | KeyboardEvent): void {
+	selectSuggestion(value: string, _evt: MouseEvent | KeyboardEvent): void {
 		if (!this.context) return;
 
 		const editor = this.context.editor;
 
-		// Remove the /remind text
 		editor.replaceRange(
 			"",
 			this.context.start,
@@ -367,11 +338,9 @@ class ReminderSuggest extends EditorSuggest<string> {
 		);
 
 		if (value.startsWith("⏰")) {
-			// Open reminder modal
 			new ReminderInputModal(this.plugin, editor, editor.getCursor().line).open();
 		} else {
-			// Open panel
-			this.plugin.activatePanel();
+			void this.plugin.activatePanel();
 		}
 	}
 }
@@ -386,13 +355,16 @@ class ReminderPanelView extends ItemView {
 		this.plugin = plugin;
 	}
 
-	getViewType() { return VIEW_TYPE_REMINDERS; }
-	getDisplayText() { return "⏰ Reminders"; }
-	getIcon() { return "bell"; }
+	getViewType(): string { return VIEW_TYPE_REMINDERS; }
+	getDisplayText(): string { return "⏰ Reminders"; }
+	getIcon(): string { return "bell"; }
 
-	async onOpen() { this.renderPanel(); }
+	onOpen(): Promise<void> {
+		this.renderPanel();
+		return Promise.resolve();
+	}
 
-	renderPanel() {
+	renderPanel(): void {
 		const container = this.containerEl.children[1];
 		container.empty();
 		container.addClass("at-reminder-panel");
@@ -427,7 +399,7 @@ class ReminderPanelView extends ItemView {
 			emptyState.createEl("div", { text: "🔔", cls: "at-reminder-empty-icon" });
 			emptyState.createEl("p", { text: "No reminders yet" });
 			emptyState.createEl("p", {
-				text: "Use Cmd+Shift+R, /remind, or the + button above to add one.",
+				text: "Use /remind, right-click, or the + button above to add one.",
 				cls: "at-reminder-hint",
 			});
 			return;
@@ -459,7 +431,7 @@ class ReminderPanelView extends ItemView {
 		}
 	}
 
-	renderCard(parent: HTMLElement, reminder: Reminder, isFired: boolean) {
+	renderCard(parent: HTMLElement, reminder: Reminder, isFired: boolean): void {
 		const card = parent.createDiv({
 			cls: `at-reminder-card ${isFired ? "at-reminder-card-fired" : "at-reminder-card-pending"}`,
 		});
@@ -486,7 +458,7 @@ class ReminderPanelView extends ItemView {
 		});
 		if (reminder.filePath && reminder.filePath !== "unknown") {
 			detailsRow.createEl("span", {
-				text: `📄 ${reminder.filePath.split("/").pop()}`,
+				text: `📄 ${reminder.filePath.split("/").pop() ?? ""}`,
 				cls: "at-reminder-card-file",
 			});
 		}
@@ -495,18 +467,8 @@ class ReminderPanelView extends ItemView {
 
 		if (reminder.filePath && reminder.filePath !== "unknown") {
 			const navBtn = actionsRow.createEl("button", { text: "📄 Go to note", cls: "at-reminder-action-btn" });
-			navBtn.addEventListener("click", async () => {
-				const file = this.app.vault.getAbstractFileByPath(reminder.filePath);
-				if (file && file instanceof TFile) {
-					const leaf = this.app.workspace.getLeaf(false);
-					await leaf.openFile(file);
-					const view = leaf.view;
-					if (view instanceof MarkdownView && view.editor) {
-						view.editor.setCursor({ line: reminder.line, ch: 0 });
-					}
-				} else {
-					new Notice("File not found: " + reminder.filePath);
-				}
+			navBtn.addEventListener("click", () => {
+				void this.navigateToReminder(reminder);
 			});
 		}
 
@@ -514,15 +476,35 @@ class ReminderPanelView extends ItemView {
 			text: "🗑️ Delete",
 			cls: "at-reminder-action-btn at-reminder-delete-btn",
 		});
-		delBtn.addEventListener("click", async () => {
-			this.plugin.settings.reminders = this.plugin.settings.reminders.filter((r) => r.id !== reminder.id);
-			await this.plugin.saveSettings();
-			this.renderPanel();
-			new Notice("Reminder deleted.");
+		delBtn.addEventListener("click", () => {
+			void this.deleteReminder(reminder);
 		});
 	}
 
-	async onClose() {}
+	async navigateToReminder(reminder: Reminder): Promise<void> {
+		const file = this.app.vault.getAbstractFileByPath(reminder.filePath);
+		if (file && file instanceof TFile) {
+			const leaf = this.app.workspace.getLeaf(false);
+			await leaf.openFile(file);
+			const view = leaf.view;
+			if (view instanceof MarkdownView && view.editor) {
+				view.editor.setCursor({ line: reminder.line, ch: 0 });
+			}
+		} else {
+			new Notice("File not found: " + reminder.filePath);
+		}
+	}
+
+	async deleteReminder(reminder: Reminder): Promise<void> {
+		this.plugin.settings.reminders = this.plugin.settings.reminders.filter((r) => r.id !== reminder.id);
+		await this.plugin.saveSettings();
+		this.renderPanel();
+		new Notice("Reminder deleted.");
+	}
+
+	onClose(): Promise<void> {
+		return Promise.resolve();
+	}
 }
 
 // ─── Settings Tab ────────────────────────────────────────────────────────────
@@ -538,35 +520,48 @@ class AtReminderSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-		containerEl.createEl("h2", { text: "⏰ Reminder Settings" });
+
+		new Setting(containerEl).setName("Reminder settings").setHeading();
 
 		new Setting(containerEl)
-			.setName("Notification Sound")
+			.setName("Notification sound")
 			.setDesc("Play a sound when a reminder fires (macOS)")
-			.addToggle((t: any) => t.setValue(this.plugin.settings.notificationSound).onChange(async (v: boolean) => {
-				this.plugin.settings.notificationSound = v;
-				await this.plugin.saveSettings();
-			}));
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.notificationSound)
+					.onChange(async (value: boolean) => {
+						this.plugin.settings.notificationSound = value;
+						await this.plugin.saveSettings();
+					})
+			);
 
 		new Setting(containerEl)
-			.setName("Clear Completed Reminders")
+			.setName("Clear completed reminders")
 			.setDesc("Remove all reminders that have already fired")
-			.addButton((b: any) => b.setButtonText("Clear Completed").onClick(async () => {
-				this.plugin.settings.reminders = this.plugin.settings.reminders.filter((r) => !r.fired);
-				await this.plugin.saveSettings();
-				this.plugin.refreshPanel();
-				new Notice("Cleared completed reminders.");
-			}));
+			.addButton((button) =>
+				button.setButtonText("Clear completed").onClick(async () => {
+					this.plugin.settings.reminders =
+						this.plugin.settings.reminders.filter((r) => !r.fired);
+					await this.plugin.saveSettings();
+					this.plugin.refreshPanel();
+					new Notice("Cleared completed reminders.");
+				})
+			);
 
 		new Setting(containerEl)
-			.setName("Clear All Reminders")
+			.setName("Clear all reminders")
 			.setDesc("Remove all reminders")
-			.addButton((b: any) => b.setButtonText("Clear All").setWarning().onClick(async () => {
-				this.plugin.settings.reminders = [];
-				await this.plugin.saveSettings();
-				this.plugin.refreshPanel();
-				new Notice("Cleared all reminders.");
-			}));
+			.addButton((button) =>
+				button
+					.setButtonText("Clear all")
+					.setWarning()
+					.onClick(async () => {
+						this.plugin.settings.reminders = [];
+						await this.plugin.saveSettings();
+						this.plugin.refreshPanel();
+						new Notice("Cleared all reminders.");
+					})
+			);
 	}
 }
 
@@ -576,7 +571,7 @@ export default class AtReminderPlugin extends Plugin {
 	settings: AtReminderSettings = DEFAULT_SETTINGS;
 	private checkInterval: number | null = null;
 
-	async onload() {
+	async onload(): Promise<void> {
 		await this.loadSettings();
 
 		// Register side panel view
@@ -586,23 +581,21 @@ export default class AtReminderPlugin extends Plugin {
 		this.registerEditorSuggest(new ReminderSuggest(this));
 
 		// Ribbon icon
-		this.addRibbonIcon("bell", "Open Reminders", () => this.activatePanel());
+		this.addRibbonIcon("bell", "Open reminders", () => {
+			void this.activatePanel();
+		});
 
 		// ─── Commands ──────────────────────────────────────────────────────
 
-		// Cmd+Shift+R — Add new reminder (hotkey set below)
 		this.addCommand({
 			id: "add-new-reminder",
 			name: "Add new reminder",
-			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "r" }],
 			editorCallback: (editor: Editor) => {
-				// If text is selected, use it as the prefill message
 				const selection = editor.getSelection();
 				new ReminderInputModal(this, editor, editor.getCursor().line, selection).open();
 			},
 		});
 
-		// Add reminder for current line (no hotkey, use command palette)
 		this.addCommand({
 			id: "add-reminder-selected-text",
 			name: "Add reminder for selected text",
@@ -616,18 +609,19 @@ export default class AtReminderPlugin extends Plugin {
 			},
 		});
 
-		// Open reminders panel
 		this.addCommand({
 			id: "open-reminders-panel",
-			name: "Open Reminders Panel",
-			callback: () => this.activatePanel(),
+			name: "Open reminders panel",
+			callback: () => {
+				void this.activatePanel();
+			},
 		});
 
 		// ─── Right-click context menu ──────────────────────────────────────
 		this.registerEvent(
 			this.app.workspace.on("editor-menu", (menu: Menu, editor: Editor) => {
 				const selection = editor.getSelection();
-				menu.addItem((item: any) => {
+				menu.addItem((item) => {
 					item
 						.setTitle("⏰ Set reminder" + (selection ? ` for "${selection.substring(0, 30)}..."` : ""))
 						.setIcon("bell")
@@ -648,22 +642,22 @@ export default class AtReminderPlugin extends Plugin {
 		// Check on load
 		this.checkReminders();
 
-		console.log("⏰ Reminder plugin loaded — Use Cmd+Shift+R, /remind, or right-click to add reminders");
+		console.debug("Reminder plugin loaded — use /remind, right-click, or command palette to add reminders");
 	}
 
-	onunload() {
+	onunload(): void {
 		if (this.checkInterval) window.clearInterval(this.checkInterval);
 	}
 
-	async loadSettings() {
+	async loadSettings(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
 
-	async saveSettings() {
+	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
 	}
 
-	checkReminders() {
+	checkReminders(): void {
 		const now = Date.now();
 		let changed = false;
 
@@ -673,23 +667,21 @@ export default class AtReminderPlugin extends Plugin {
 				reminder.fired = true;
 				changed = true;
 
-				// Send native notification — clicking it focuses Obsidian and navigates to the note
 				const filePath = reminder.filePath;
 				const lineNum = reminder.line;
 				const app = this.app;
-				// Notification title = reminder text, body = description + note info
-				const notifBody = (reminder.description || "") + (reminder.filePath !== "unknown" ? "\n📄 " + reminder.filePath.split("/").pop() : "");
-				sendNotification(reminder.message, notifBody || "Obsidian Reminder", this.settings.notificationSound, async () => {
-					// Navigate to the note when notification is clicked
+				const notifBody = (reminder.description || "") + (reminder.filePath !== "unknown" ? "\n📄 " + (reminder.filePath.split("/").pop() ?? "") : "");
+				sendNotification(reminder.message, notifBody || "Reminder", this.settings.notificationSound, () => {
 					if (filePath && filePath !== "unknown") {
 						const file = app.vault.getAbstractFileByPath(filePath);
 						if (file && file instanceof TFile) {
 							const leaf = app.workspace.getLeaf(false);
-							await leaf.openFile(file);
-							const view = leaf.view;
-							if (view instanceof MarkdownView && view.editor) {
-								view.editor.setCursor({ line: lineNum, ch: 0 });
-							}
+							void leaf.openFile(file).then(() => {
+								const view = leaf.view;
+								if (view instanceof MarkdownView && view.editor) {
+									view.editor.setCursor({ line: lineNum, ch: 0 });
+								}
+							});
 						}
 					}
 				});
@@ -698,12 +690,12 @@ export default class AtReminderPlugin extends Plugin {
 		}
 
 		if (changed) {
-			this.saveSettings();
+			void this.saveSettings();
 			this.refreshPanel();
 		}
 	}
 
-	async activatePanel() {
+	async activatePanel(): Promise<void> {
 		const { workspace } = this.app;
 		let leaf: WorkspaceLeaf | null = null;
 		const leaves = workspace.getLeavesOfType(VIEW_TYPE_REMINDERS);
@@ -719,10 +711,11 @@ export default class AtReminderPlugin extends Plugin {
 		if (leaf) workspace.revealLeaf(leaf);
 	}
 
-	refreshPanel() {
+	refreshPanel(): void {
 		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_REMINDERS)) {
-			if (leaf.view instanceof ReminderPanelView) {
-				(leaf.view as ReminderPanelView).renderPanel();
+			const view = leaf.view;
+			if (view instanceof ReminderPanelView) {
+				view.renderPanel();
 			}
 		}
 	}
