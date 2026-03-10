@@ -119,7 +119,7 @@ class ReminderInputModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass("at-reminder-modal");
 
-		contentEl.createEl("h2", { text: "⏰ New reminder" });
+		contentEl.createEl("h2", { text: "New reminder" });
 
 		const formContainer = contentEl.createDiv({ cls: "at-reminder-form" });
 
@@ -203,7 +203,7 @@ class ReminderInputModal extends Modal {
 		const btnContainer = formContainer.createDiv({ cls: "at-reminder-buttons" });
 
 		const submitBtn = btnContainer.createEl("button", {
-			text: "✅ Set reminder",
+			text: "Set reminder",
 			cls: "at-reminder-submit-btn mod-cta",
 		});
 
@@ -356,7 +356,7 @@ class ReminderPanelView extends ItemView {
 	}
 
 	getViewType(): string { return VIEW_TYPE_REMINDERS; }
-	getDisplayText(): string { return "⏰ Reminders"; }
+	getDisplayText(): string { return "Reminders"; }
 	getIcon(): string { return "bell"; }
 
 	onOpen(): Promise<void> {
@@ -371,7 +371,7 @@ class ReminderPanelView extends ItemView {
 
 		// Header
 		const header = container.createDiv({ cls: "at-reminder-panel-header" });
-		header.createEl("h3", { text: "⏰ Reminders" });
+		header.createEl("h3", { text: "Reminders" });
 
 		const headerBtns = header.createDiv({ cls: "at-reminder-header-btns" });
 
@@ -420,13 +420,13 @@ class ReminderPanelView extends ItemView {
 
 		if (upcoming.length > 0) {
 			const section = container.createDiv({ cls: "at-reminder-section" });
-			section.createEl("h4", { text: "⏳ Upcoming" });
+			section.createEl("h4", { text: "Upcoming" });
 			for (const r of upcoming) this.renderCard(section, r, false);
 		}
 
 		if (past.length > 0) {
 			const section = container.createDiv({ cls: "at-reminder-section" });
-			section.createEl("h4", { text: "✅ Completed" });
+			section.createEl("h4", { text: "Completed" });
 			for (const r of past) this.renderCard(section, r, true);
 		}
 	}
@@ -466,14 +466,14 @@ class ReminderPanelView extends ItemView {
 		const actionsRow = card.createDiv({ cls: "at-reminder-card-actions" });
 
 		if (reminder.filePath && reminder.filePath !== "unknown") {
-			const navBtn = actionsRow.createEl("button", { text: "📄 Go to note", cls: "at-reminder-action-btn" });
+			const navBtn = actionsRow.createEl("button", { text: "Go to note", cls: "at-reminder-action-btn" });
 			navBtn.addEventListener("click", () => {
 				void this.navigateToReminder(reminder);
 			});
 		}
 
 		const delBtn = actionsRow.createEl("button", {
-			text: "🗑️ Delete",
+			text: "Delete",
 			cls: "at-reminder-action-btn at-reminder-delete-btn",
 		});
 		delBtn.addEventListener("click", () => {
@@ -521,7 +521,7 @@ class AtReminderSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		new Setting(containerEl).setName("Reminder settings").setHeading();
+		new Setting(containerEl).setName("Reminders").setHeading();
 
 		new Setting(containerEl)
 			.setName("Notification sound")
@@ -708,7 +708,7 @@ export default class AtReminderPlugin extends Plugin {
 				await leaf.setViewState({ type: VIEW_TYPE_REMINDERS, active: true });
 			}
 		}
-		if (leaf) workspace.revealLeaf(leaf);
+		if (leaf) void workspace.revealLeaf(leaf);
 	}
 
 	refreshPanel(): void {
